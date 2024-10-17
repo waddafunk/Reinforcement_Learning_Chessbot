@@ -1,0 +1,7 @@
+nbqa
+pylint
+black
+nbstripout
+chess
+numpy
+tensorflow[and-cuda]
