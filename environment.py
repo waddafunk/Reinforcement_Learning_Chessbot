@@ -2,6 +2,8 @@ import chess
 import numpy as np
 import tensorflow as tf
 import pygame
+import gym
+from gym import spaces
 
 # Constants for the chessboard
 BOARD_SIZE = 1000
@@ -21,9 +23,64 @@ SYMBOL_TO_PIECE_NAME = {
 }
 
 
-class ChessEnv:
+class ChessEnv(gym.Env):
     def __init__(self):
         self.board = chess.Board()
+        # Actions: 64 possible 'from' squares * 64 possible 'to' squares * 5 possible promotions
+        self.action_space = spaces.Discrete(64 * 64 * 5)
+        # Observation: 8x8 board with integer values representing pieces
+        self.observation_space = spaces.Box(low=-6, high=6, shape=(8, 8), dtype=np.int8)
+        self.render_function = self.init_render
+
+    def init_graphics(self):
+        pygame.init()
+        pygame.display.set_mode((BOARD_SIZE, BOARD_SIZE))
+        pygame.display.set_caption("Chess Environment")
+
+    def render_no_init(self, mode="human"):
+        self._draw_board()
+        pygame.display.flip()
+
+    def init_render(self, mode="human"):
+        self.init_graphics()
+        self.render_no_init()
+        self.render_function = self.render_no_init
+
+    def render(self, mode="human"):
+        self.render_function(mode)
+
+    def _draw_board(self):
+        screen = pygame.display.get_surface()
+        screen.fill(COLORS["black"])
+
+        for i in range(8):
+            for j in range(8):
+                color = COLORS["white"] if (i + j) % 2 == 0 else COLORS["black"]
+                pygame.draw.rect(
+                    screen,
+                    color,
+                    (i * SQUARE_SIZE, j * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE),
+                )
+
+        for square, piece in self.board.piece_map().items():
+            self._draw_piece(piece, square)
+
+    def _draw_piece(self, piece, square):
+        color = "black"
+        if piece.color:
+            color = "white"
+
+        screen = pygame.display.get_surface()
+        image = pygame.image.load(
+            "images/"
+            + SYMBOL_TO_PIECE_NAME[piece.symbol().lower()]
+            + "_"
+            + color
+            + ".png"
+        )
+        image = pygame.transform.scale(image, (SQUARE_SIZE, SQUARE_SIZE))
+        rank, file = divmod(square, 8)
+        screen.blit(image, (file * SQUARE_SIZE, (7 - rank) * SQUARE_SIZE))
 
     def reset(self):
         self.board.reset()
@@ -54,11 +111,11 @@ class ChessEnv:
             observation = self._get_observation()
 
             return observation, reward, done, {}
-        else:
-            # Invalid move, return the current observation and a negative reward
-            return self._get_observation(), -1.0, False, {}
 
-    def _action_to_move(self, action):        # Convert the action index to a chess move
+        # Invalid move, return the current observation and a negative reward
+        return self._get_observation(), -1.0, False, {}
+
+    def _action_to_move(self, action):  # Convert the action index to a chess move
         from_square = action // (64 * 5)
         to_square = (action % (64 * 5)) // 5
         promotion = action % 5
@@ -99,7 +156,7 @@ class ChessEnv:
     def explain_action(self, action):
         if action is None:
             return "Invalid move"
-                
+
         from_square, to_square, promotion = self._action_to_move(action)
 
         # Get the piece at the from_square
@@ -159,19 +216,8 @@ class ChessEnv:
             return None
 
 
-class GraphicEnvironment(ChessEnv):
-    def __init__(self):
-        super().__init__()
-
-    def render(self):
-        self._draw_board()
-        pygame.display.flip()
-
+class InteractiveEnvironment(ChessEnv):
     def play(self):
-        pygame.init()
-        screen = pygame.display.set_mode((BOARD_SIZE, BOARD_SIZE))
-        pygame.display.set_caption("Chess Environment")
-
         while not self.board.is_game_over():
             self.render()
             action = self.notation_to_action(input("Make a move: "))
@@ -199,44 +245,11 @@ class GraphicEnvironment(ChessEnv):
         result = self.board.result()
         print(f"Game Over. Result: {result}")
 
-    def _draw_board(self):
-        screen = pygame.display.get_surface()
-        screen.fill(COLORS["black"])
-
-        for i in range(8):
-            for j in range(8):
-                color = COLORS["white"] if (i + j) % 2 == 0 else COLORS["black"]
-                pygame.draw.rect(
-                    screen,
-                    color,
-                    (i * SQUARE_SIZE, j * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE),
-                )
-
-        for square, piece in self.board.piece_map().items():
-            self._draw_piece(piece, square)
-
-    def _draw_piece(self, piece, square):
-        color = "black"
-        if piece.color:
-            color = "white"
-
-        screen = pygame.display.get_surface()
-        image = pygame.image.load(
-            "images/"
-            + SYMBOL_TO_PIECE_NAME[piece.symbol().lower()]
-            + "_"
-            + color
-            + ".png"
-        )
-        image = pygame.transform.scale(image, (SQUARE_SIZE, SQUARE_SIZE))
-        rank, file = divmod(square, 8)
-        screen.blit(image, (file * SQUARE_SIZE, (7 - rank) * SQUARE_SIZE))
-
     def _get_square_from_mouse(self, pos):
         file, rank = pos[0] // SQUARE_SIZE, 7 - pos[1] // SQUARE_SIZE
         return chess.square(file, rank)
 
 
 if __name__ == "__main__":
-    env = GraphicEnvironment()
+    env = InteractiveEnvironment()
     env.play()
