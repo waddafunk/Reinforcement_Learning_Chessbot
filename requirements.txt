@@ -10,3 +10,4 @@ torchvision
 torchaudio
 gym
 isort
+pygame
