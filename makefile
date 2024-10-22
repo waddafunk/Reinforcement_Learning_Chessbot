@@ -1,4 +1,4 @@
-.PHONY: all help venv install format lint strip_notebooks
+.PHONY: all help install format lint strip_notebooks
 
 all: install strip_notebooks format lint 
 
