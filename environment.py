@@ -252,29 +252,7 @@ class ChessEnv(gym.Env):
         try:
             # Parse the notation using python-chess
             move = chess.Move.from_uci(notation)
-
-            # Get the from_square and to_square
-            from_square = move.from_square
-            to_square = move.to_square
-
-            # Get the promotion piece type (if applicable)
-            promotion = move.promotion
-
-            # Convert the promotion piece type to the corresponding value
-            promotion_value = 0
-            if promotion is not None:
-                promotion_map = {
-                    chess.QUEEN: 1,
-                    chess.ROOK: 2,
-                    chess.BISHOP: 3,
-                    chess.KNIGHT: 4,
-                }
-                promotion_value = promotion_map[promotion]
-
-            # Calculate the action number
-            action = (from_square * 64 * 5) + (to_square * 5) + promotion_value
-
-            return action
+            return self.move_to_action(move)
         except ValueError:
             return None
 
