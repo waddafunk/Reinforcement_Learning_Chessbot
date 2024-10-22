@@ -4,4 +4,9 @@ black
 nbstripout
 chess
 numpy
-tensorflow[and-cuda]
+matplotlib
+torch 
+torchvision 
+torchaudio
+gym
+isort

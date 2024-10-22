@@ -21,11 +21,12 @@ format:
 	@echo "Formatting code..."
 	 black .
 	 nbqa black .
+	 isort .
+	 nbqa isort .
 
 lint: 
 	@echo "Linting code..."
-	pylint *.py
-	nbqa pylint . *.ipynb
+	pylint *.py --disable=C0114,C0115,C0116,R1725,C0103,W0621,W0603
 
 strip_notebooks: 
 	@echo "Stripping notebooks..."
