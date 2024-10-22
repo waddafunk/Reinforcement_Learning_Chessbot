@@ -11,3 +11,4 @@ torchaudio
 gym
 isort
 pygame
+pyupgrade

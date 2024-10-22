@@ -25,7 +25,7 @@ class ReplayMemory:
 
 class DQN(nn.Module):
     def __init__(self, n_observations, n_actions, shrink=3):
-        super(DQN, self).__init__()
+        super().__init__()
         layer_dict = OrderedDict(
             chain.from_iterable(
                 [
@@ -70,7 +70,7 @@ class DQN(nn.Module):
 
 
 if __name__ == "__main__":
-    print("CUDA available: ", torch.cuda.is_available())
+    print("CUDA available: ", torch.cuda.is_available()                    )
     INPUT_FEATS = 20
     testnet = DQN(INPUT_FEATS, 1, 3)
     print(testnet)
