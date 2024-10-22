@@ -7,7 +7,7 @@ on:
     branches: [ main, master ]
 
 jobs:
-  format-and-lint:
+  format-upgrade-lint:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -26,6 +26,9 @@ jobs:
           
       - name: Run formatters
         run: make format
+
+      - name: Run upgraders
+        run: make upgrade
           
       - name: Run linter
         run: make lint
