@@ -4,9 +4,10 @@ import chess
 import gym
 import numpy as np
 import pygame
+import torch
 from gym import spaces
 
-from constants import N_ACTIONS
+from constants import N_ACTIONS, device
 
 # Constants for the chessboard
 BOARD_SIZE = 1000
@@ -27,13 +28,42 @@ SYMBOL_TO_PIECE_NAME = {
 
 
 class ChessEnv(gym.Env):
-    def __init__(self):
+    def __init__(self, max_turns=1e9):
         self.board = chess.Board()
         # Actions: 64 possible 'from' squares * 64 possible 'to' squares * 5 possible promotions
         self.action_space = spaces.Discrete(N_ACTIONS)
         # Observation: 8x8 board with integer values representing pieces
         self.observation_space = spaces.Box(low=-6, high=6, shape=(8, 8), dtype=np.int8)
         self.render_function = self.init_render
+        self.max_turns = max_turns
+        self.current_turn = 0
+
+        # Define piece values
+        self.piece_values = {
+            chess.PAWN: 1,
+            chess.KNIGHT: 3,
+            chess.BISHOP: 3,
+            chess.ROOK: 5,
+            chess.QUEEN: 9,
+            chess.KING: 0,
+        }
+
+    def __del__(self):
+        pygame.quit()
+
+    def calculate_material_balance(self):
+        """Calculate the material difference (white - black)"""
+        white_material = 0
+        black_material = 0
+
+        for _, piece in self.board.piece_map().items():
+            value = self.piece_values[piece.piece_type]
+            if piece.color == chess.WHITE:
+                white_material += value
+            else:
+                black_material += value
+
+        return white_material - black_material
 
     def move_to_action(self, move):
         from_square = move.from_square
@@ -130,9 +160,11 @@ class ChessEnv(gym.Env):
         rank, file = divmod(square, 8)
         screen.blit(image, (file * SQUARE_SIZE, (7 - rank) * SQUARE_SIZE))
 
-    def reset(self, *, seed=None, options=None):
+    def reset(self, *, seed=None, options=None, max_turns=1e9):
         if seed is not None or options is not None:
             print("WARNING: seed and option args not used")
+        self.max_turns = max_turns
+        self.current_turn = 0
         self.board.reset()
         return self._get_observation()
 
@@ -140,6 +172,7 @@ class ChessEnv(gym.Env):
         # Convert the action to a chess move
         from_square, to_square, promotion = self.action_to_move(action)
         move = chess.Move(from_square, to_square, promotion=promotion)
+        self.current_turn += 1
 
         # Check if the move is legal
         if move in self.board.legal_moves:
@@ -151,11 +184,14 @@ class ChessEnv(gym.Env):
 
             # Calculate the reward based on the game outcome
             if self.board.is_checkmate():
-                reward = 100.0  # if self.board.turn == chess.WHITE else -1.0
+                reward = 100000.0 if self.board.turn == chess.WHITE else -1.0
             elif self.board.is_stalemate() or self.board.is_insufficient_material():
                 reward = 0.0
+            elif self.current_turn >= self.max_turns:
+                done = True
+                reward = self.calculate_material_balance()
             else:
-                reward = 0.0
+                reward = self.calculate_material_balance()
 
             # Get the new observation after the move
             observation = self._get_observation()
@@ -181,14 +217,6 @@ class ChessEnv(gym.Env):
         action -= non_promotion_moves
         from_file = action // (8 * 4)
         to_file = (action % (8 * 4)) // 4
-        promotion = action % 4
-
-        promotion_map = {
-            0: chess.QUEEN,
-            1: chess.ROOK,
-            2: chess.BISHOP,
-            3: chess.KNIGHT,
-        }
 
         # Determine the rank based on the color to play
         from_rank = 6 if self.board.turn == chess.WHITE else 1
@@ -196,11 +224,11 @@ class ChessEnv(gym.Env):
         from_square = chess.square(from_file, from_rank)
         to_square = chess.square(to_file, to_rank)
 
-        return (from_square, to_square, promotion_map[promotion])
+        return (from_square, to_square, chess.QUEEN)
 
     def _get_observation(self):
         # Convert the board state to a feature representation
-        feature_matrix = np.zeros((8, 8), dtype=np.int8)
+        feature_matrix = np.zeros((8, 8), dtype=np.int64)
 
         for square, piece in self.board.piece_map().items():
             rank, file = divmod(square, 8)
@@ -256,6 +284,14 @@ class ChessEnv(gym.Env):
         except ValueError:
             return None
 
+    def get_legal_moves_mask(self):
+        """Create a mask of legal moves in the current position"""
+        mask = torch.zeros(N_ACTIONS, device=device)
+        for legal_move in self.board.legal_moves:
+            action = self.move_to_action(legal_move)
+            mask[action] = 1
+        return mask
+
 
 class InteractiveEnvironment(ChessEnv):
     def play(self):
@@ -293,4 +329,8 @@ class InteractiveEnvironment(ChessEnv):
 
 if __name__ == "__main__":
     env = InteractiveEnvironment()
-    env.play()
+    for i in range(N_ACTIONS):
+        from_square, to_square, promotion = env.action_to_move(i)
+        check = env.move_to_action(chess.Move(from_square, to_square, promotion))
+        assert check == i
+    # env.play()

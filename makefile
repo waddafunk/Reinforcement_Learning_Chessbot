@@ -30,7 +30,7 @@ upgrade:
 
 lint: 
 	@echo "Linting code..."
-	pylint *.py --disable=C0114,C0115,C0116,R1725,C0103,W0621,W0603
+	pylint *.py --disable=C0114,C0115,C0116,R1725,C0103,W0621,W0603,R0914,E1101
 
 strip_notebooks: 
 	@echo "Stripping notebooks..."
